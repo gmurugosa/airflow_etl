@@ -6,11 +6,12 @@ from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from airflow.hooks.base_hook import BaseHook
 from airflow.models import Variable
+from airflow.utils.dates import days_ago
 
 # Define the configuration of the DAG
 default_args = {
     'owner': 'gabriel',
-    'start_date': datetime(2024, 1, 1),
+    'start_date': days_ago(1),
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
@@ -30,11 +31,6 @@ engine = create_engine(db_hook.get_uri(), execution_options={"autocommit": True}
 # List of cryptocurrencies to obtain
 coins = Variable.get("coins", deserialize_json=True).get("list")
 
-def get_yesterday_date():
-    current_date_utc = datetime.now(timezone.utc)
-    yesterday_utc = current_date_utc - timedelta(days=1)
-    return yesterday_utc.year, yesterday_utc.month, yesterday_utc.day
-
 def drop_aux_table():
     query = "DROP TABLE IF EXISTS cryptodata_aux;"
     run_query(query)
@@ -46,9 +42,37 @@ def run_query(query):
     except Exception as e:
         logging.error(f"Error executing the query: {e}")
 
+def create_table_cryptodata_on_redshift():
+    # Execute SQL command to create the table CryptoData
+    create_sql = """
+                CREATE TABLE CryptoData (
+                    date date,
+                    coin varchar(256),
+                    opening float8,
+                    closing float8,
+                    lowest float8,
+                    highest float8,
+                    volume float8,
+                    quantity float8,
+                    amount int8,
+                    avg_price float8,
+                    primary key (date,coin)
+                );   
+            """
+    run_query(create_sql) 
+
+
+
 def download_crypto_info(**kwargs):
-    # Get yesterday's date
-    year, month, day = get_yesterday_date()
+    
+    start_date = kwargs['dag'].default_args['start_date']
+    print(f"Valor variable start_date {start_date}")
+    
+
+    # Get start date from the DAG configuration
+    year =start_date.year
+    month = start_date.month
+    day = start_date.day
 
     # Drop auxiliary table
     drop_aux_table()
@@ -94,7 +118,7 @@ def load_data_to_redshift(**kwargs):
             print(f"Data loaded into Redshift for {coin}")
 
 def execute_merge_on_redshift():
-    # Ejecuto un comando SQL MERGE entre la tabla principal y la tabla auxiliar
+    # Execute SQL MERGE between the main table and the auxiliar table
     merge_sql = """
                 MERGE INTO cryptodata
                 USING cryptodata_aux AS source
@@ -116,7 +140,13 @@ def execute_merge_on_redshift():
             """
     run_query(merge_sql)        
 
-# Define tasks
+# Define tasks   
+task_create_table_cryptodata_on_redshift = PythonOperator(
+    task_id='create_table_cryptodata_on_redshift',
+    python_callable=create_table_cryptodata_on_redshift,
+    dag=dag,
+)
+
 task_download_crypto_info = PythonOperator(
     task_id='download_crypto_info',
     python_callable=download_crypto_info,
@@ -138,4 +168,4 @@ task_execute_merge_on_redshift = PythonOperator(
 )
 
 # Set the task flow
-task_download_crypto_info >> task_load_data_to_redshift >> task_execute_merge_on_redshift
+task_create_table_cryptodata_on_redshift >> task_download_crypto_info >> task_load_data_to_redshift >> task_execute_merge_on_redshift
