@@ -45,7 +45,7 @@ def run_query(query):
 def create_table_cryptodata_on_redshift():
     # Execute SQL command to create the table CryptoData
     create_sql = """
-                CREATE TABLE CryptoData (
+                CREATE TABLE if not exists CryptoData (
                     date date,
                     coin varchar(256),
                     opening float8,
