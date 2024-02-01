@@ -37,9 +37,9 @@ It's easy, just do:
 6. Once inside, activate the DAG, wait for it to turn dark green and voila! The pipeline ran.
 7. To kill everything, you can `make stop`
 
+![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/a7215fe2-3c7b-4fe7-869f-340e92735c08)
 
-[![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/89879b66-3e51-4d47-b2ae-cbb2d83f1097)](https://github.com/gmurugosa/airflow_etl)https://github.com/gmurugosa/airflow_etl
-
+https://github.com/gmurugosa/airflow_etl
 
 
 ## HELP!
