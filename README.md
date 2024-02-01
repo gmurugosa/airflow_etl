@@ -38,7 +38,7 @@ It's easy, just do:
 7. To kill everything, you can `make stop`
 
 
-![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/89879b66-3e51-4d47-b2ae-cbb2d83f1097)
+[![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/89879b66-3e51-4d47-b2ae-cbb2d83f1097)](https://github.com/gmurugosa/airflow_etl)https://github.com/gmurugosa/airflow_etl
 
 
 
