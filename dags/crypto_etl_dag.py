@@ -4,24 +4,28 @@ import requests
 from sqlalchemy import create_engine
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.email_operator import EmailOperator
 from airflow.hooks.base_hook import BaseHook
+from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 # Define the configuration of the DAG
 default_args = {
     'owner': 'gabriel',
-    'start_date': days_ago(1),
+    'start_date': days_ago(60),
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
 
 dag = DAG(
-    'crypto_data_dag',
+    'crypto_data_dag2',
     default_args=default_args,
     description='Get daily cryptocurrency information and update the database',
     schedule_interval=timedelta(days=1),
-    catchup=False,
+    catchup=True,
 )
 
 # Retrieve Redshift connection details using Airflow Hook
@@ -109,6 +113,14 @@ def convert_to_dataframe(data, coin):
         return df
     return pd.DataFrame()
 
+def load_data_to_dw(**kwargs):
+    ti = kwargs['ti']
+    for coin in coins:
+        df = ti.xcom_pull(task_ids='download_crypto_info', key=f"dataframe_{coin}")
+        if not df.empty:
+            df.to_sql("cryptodata_aux", engine, if_exists='append', index=False)
+            print(f"Data loaded into Redshift for {coin}")
+
 def load_data_to_redshift(**kwargs):
     ti = kwargs['ti']
     for coin in coins:
@@ -140,6 +152,38 @@ def execute_merge_on_redshift():
             """
     run_query(merge_sql)        
 
+
+def send_email():
+    message = Mail(
+                from_email=Variable.get("email_from"),
+                to_emails=Variable.get("email_to"),
+                subject="alerta",
+                html_content="<strong>Body de la alerta</strong>")
+
+    sg = SendGridAPIClient(Variable.get("sendgrid_api_key"))
+    response = sg.send(message)
+    print(response.status_code)
+
+
+def show_data():
+    # Define the connection id
+    connection_id = 'airflow_dw'
+
+    # Instantiate a PostgresHook with the connection id
+    postgres_hook = PostgresHook(postgres_conn_id=connection_id)
+
+    # Define your SQL query
+    sql_query = """
+    SELECT *
+    FROM conversion_real_to_peso
+    """
+
+    # Fetch data from the database using the hook
+    result = postgres_hook.get_pandas_df(sql_query)
+
+    # Now 'result' contains the data as a pandas DataFrame
+    print(result)
+
 # Define tasks   
 task_create_table_cryptodata_on_redshift = PythonOperator(
     task_id='create_table_cryptodata_on_redshift',
@@ -167,5 +211,18 @@ task_execute_merge_on_redshift = PythonOperator(
     dag=dag,
 )
 
+task_send_email = PythonOperator(
+    task_id='send_email_task',
+    python_callable=send_email,
+    dag=dag
+)
+
+task_show_data = PythonOperator(
+    task_id='show_data_task',
+    python_callable=show_data,
+    dag=dag
+)
+
 # Set the task flow
-task_create_table_cryptodata_on_redshift >> task_download_crypto_info >> task_load_data_to_redshift >> task_execute_merge_on_redshift
+task_create_table_cryptodata_on_redshift >> task_download_crypto_info >> task_load_data_to_redshift >> task_execute_merge_on_redshift >> task_send_email
+task_create_table_cryptodata_on_redshift >> task_show_data 
