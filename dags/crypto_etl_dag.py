@@ -15,13 +15,13 @@ from sendgrid.helpers.mail import Mail
 # Define the configuration of the DAG
 default_args = {
     'owner': 'gabriel',
-    'start_date': days_ago(60),
+    'start_date': days_ago(1),
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
 
 dag = DAG(
-    'crypto_data_dag2',
+    'crypto_data_dag',
     default_args=default_args,
     description='Get daily cryptocurrency information and update the database',
     schedule_interval=timedelta(days=1),
@@ -31,9 +31,8 @@ dag = DAG(
 # Retrieve Redshift connection details using Airflow Hook
 db_hook = BaseHook.get_hook(conn_id='amazon_redshift')
 engine = create_engine(db_hook.get_uri(), execution_options={"autocommit": True})
-
 # List of cryptocurrencies to obtain
-coins = Variable.get("coins", deserialize_json=True).get("list")
+coins = list(Variable.get("coins", deserialize_json=True).get("list"))
 
 def drop_aux_table():
     query = "DROP TABLE IF EXISTS cryptodata_aux;"
@@ -65,13 +64,38 @@ def create_table_cryptodata_on_redshift():
             """
     run_query(create_sql) 
 
+def get_conversion_real_to_peso(**kwargs):
+    # Define the connection id
+    connection_id = 'airflow_dw'
+
+    # Instantiate a PostgresHook with the connection id
+    postgres_hook = PostgresHook(postgres_conn_id=connection_id)
+
+    start_date = kwargs['dag'].default_args['start_date']
+
+    parsed_date = pd.to_datetime(start_date, format='%Y-%m-%d')
+
+    # Define your SQL query
+    sql_query = f"""
+        SELECT date,rate
+        FROM conversion_real_to_peso
+        where date = '{parsed_date}'
+    """
+
+    # Fetch data from the database using the hook
+    result = postgres_hook.get_pandas_df(sql_query)
+    kwargs['ti'].xcom_push(key="dataframe_conversion_real_to_peso", value=result)
+    # Now 'result' contains the data as a pandas DataFrame
+    print(result)
 
 
 def download_crypto_info(**kwargs):
     
     start_date = kwargs['dag'].default_args['start_date']
     print(f"Valor variable start_date {start_date}")
-    
+    df_uruguayan_data = kwargs['ti'].xcom_pull(task_ids='get_conversion_real_to_peso', key="dataframe_conversion_real_to_peso")
+    rate = df_uruguayan_data['rate']
+   
 
     # Get start date from the DAG configuration
     year =start_date.year
@@ -82,11 +106,12 @@ def download_crypto_info(**kwargs):
     drop_aux_table()
 
     # Download information for each cryptocurrency
-    for coin in coins:
+    for coin in coins.keys():
         coin_data = obtain_daily_information(coin, year, month, day)
         if coin_data:
-            df = convert_to_dataframe(coin_data, coin)
+            df = create_dataframe(coin_data, coin, rate)
             print(f"Downloading information for {coin} on {year}/{month}/{day}:")
+            print(df)
             # Store the DataFrame in the task instance
             kwargs['ti'].xcom_push(key=f"dataframe_{coin}", value=df)
 
@@ -103,23 +128,20 @@ def obtain_daily_information(coin, year, month, day):
         logging.error(f"Request Exception: {e}")
         return None
 
-def convert_to_dataframe(data, coin):
+def create_dataframe(data, coin, rate):
     if data:
         df = pd.DataFrame([data])
         df['date'] = pd.to_datetime(df['date']).dt.date
         df['volume'] = pd.to_numeric(df['volume'])
         df['quantity'] = pd.to_numeric(df['quantity'])
         df['coin'] = coin
+        df['opening'] = df['opening'] * rate
+        df['closing'] = df['closing'] * rate
+        df['lowest'] = df['lowest'] * rate
+        df['highest'] = df['highest'] * rate
+        df['avg_price'] = df['avg_price'] * rate
         return df
     return pd.DataFrame()
-
-def load_data_to_dw(**kwargs):
-    ti = kwargs['ti']
-    for coin in coins:
-        df = ti.xcom_pull(task_ids='download_crypto_info', key=f"dataframe_{coin}")
-        if not df.empty:
-            df.to_sql("cryptodata_aux", engine, if_exists='append', index=False)
-            print(f"Data loaded into Redshift for {coin}")
 
 def load_data_to_redshift(**kwargs):
     ti = kwargs['ti']
@@ -164,30 +186,18 @@ def send_email():
     response = sg.send(message)
     print(response.status_code)
 
-
-def show_data():
-    # Define the connection id
-    connection_id = 'airflow_dw'
-
-    # Instantiate a PostgresHook with the connection id
-    postgres_hook = PostgresHook(postgres_conn_id=connection_id)
-
-    # Define your SQL query
-    sql_query = """
-    SELECT *
-    FROM conversion_real_to_peso
-    """
-
-    # Fetch data from the database using the hook
-    result = postgres_hook.get_pandas_df(sql_query)
-
-    # Now 'result' contains the data as a pandas DataFrame
-    print(result)
-
 # Define tasks   
 task_create_table_cryptodata_on_redshift = PythonOperator(
     task_id='create_table_cryptodata_on_redshift',
     python_callable=create_table_cryptodata_on_redshift,
+    provide_context=True,
+    dag=dag,
+)
+
+task_get_conversion_real_to_peso = PythonOperator(
+    task_id='get_conversion_real_to_peso',
+    python_callable=get_conversion_real_to_peso,
+    provide_context=True,
     dag=dag,
 )
 
@@ -208,21 +218,16 @@ task_load_data_to_redshift = PythonOperator(
 task_execute_merge_on_redshift = PythonOperator(
     task_id='execute_merge_on_redshift',
     python_callable=execute_merge_on_redshift,
+    provide_context=True,
     dag=dag,
 )
 
 task_send_email = PythonOperator(
     task_id='send_email_task',
     python_callable=send_email,
-    dag=dag
-)
-
-task_show_data = PythonOperator(
-    task_id='show_data_task',
-    python_callable=show_data,
+    provide_context=True,
     dag=dag
 )
 
 # Set the task flow
-task_create_table_cryptodata_on_redshift >> task_download_crypto_info >> task_load_data_to_redshift >> task_execute_merge_on_redshift >> task_send_email
-task_create_table_cryptodata_on_redshift >> task_show_data 
+task_create_table_cryptodata_on_redshift >> task_get_conversion_real_to_peso >>task_download_crypto_info >> task_load_data_to_redshift >> task_execute_merge_on_redshift >> task_send_email
