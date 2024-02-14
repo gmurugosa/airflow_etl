@@ -25,7 +25,7 @@ In the Airflow UI for your local Airflow environment, go to Admin > Connections.
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/086b5ebd-33b7-4f8f-81e3-1e016b65cd55)
 
 
-## Configuring your Airflow Variable with the list of coins
+## Configuring your Airflow Variables
 To configure the information of the coins that you need to store on Amazon Redshift, it's necessary to create a variable with name coins.
 
 In the Airflow UI for your local Airflow environment, go to Admin > Variables. Click + to add a new variable, then write the name and value in JSON format.
