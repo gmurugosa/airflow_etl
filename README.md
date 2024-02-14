@@ -32,7 +32,8 @@ In the Airflow UI for your local Airflow environment, go to Admin > Connections.
 
 Create the connection using the image below as a reference.
 
-![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/086b5ebd-33b7-4f8f-81e3-1e016b65cd55)
+![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/1048216e-d0f3-416b-b2b5-6c934ad67d36)
+
 
 
 ## Configuring your Airflow Variables
