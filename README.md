@@ -2,17 +2,21 @@
 ### Developed by Gabriel Murugosa
 
 ## Requirements
-- Have Docker
+- Docker
 
 ## Description
-This code gives you all the tools to run the specific DAG called `crypto_etl_dag.py`
+This project implements an Airflow Directed Acyclic Graph (DAG) named crypto_data_dag to fetch daily cryptocurrency information from an API.
+The information is in Real (Brazilian currency) so the process converts it to the Uruguayan Peso using data in a PostgreSQL database.
+After this transformation load the data in Amazon Redshift and it sends email alerts with summaries of coins volume exceeding predefined thresholds.
 
 What this DAG does is:
 
-1. Pulls data from Mercadobitcoin(www.mercadobitcoin.net)
-2. Get data from a Postgresql database with the rate conversion of Real currency to Peso.
-3. Load the data into an Amazon Redshift table (cryptodata_aux) with the data for this day
-4. Merge the information in another table in Amazon Redshift with all the historical information 
+1. Create Crypto Data Table: Creates a table named CryptoData in the PostgreSQL database if it doesn't exist.
+2. Get Conversion Rate: Fetches the conversion rate of Real to Peso from the database.
+3. Download Crypto Information: Downloads daily cryptocurrency information from an API, processes it, and stores it as a DataFrame.
+4. Load the data into an Amazon Redshift table (cryptodata_aux) with the data for this day
+5. Merge the information in another table in Amazon Redshift with all the historical information
+6. Send an email with a summary of the coin volume exceeding predefined thresholds. 
 
 ## Configuring your Amazon Redshift Connection
 In the Airflow UI for your local Airflow environment, go to Admin > Connections. Click + to add a new connection, then select the connection type as Amazon Redshift.
@@ -90,7 +94,12 @@ In the Airflow UI for your local Airflow environment, go to Admin > Variables. C
 
 To send email alerts you need to create an account in the Sendgrid site https://sendgrid.com/en-us/pricing and get an API key.
 
-After that you need to create three new variables in airflow sendgrid_api_key, sendgrid_email_from and sendgrid_email_to.
+After that you need to create three new variables in airflow: 
+
+1. sendgrid_api_key: API key for SendGrid to send email alerts.
+2. sendgrid_email_from: Email address from which alerts will be sent.
+3. sendgrid_email_to: Email address(es) to which alerts will be sent.
+
 
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/f389bcb8-a2ae-404b-806f-b4a9bd792ddf)
 
