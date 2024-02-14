@@ -16,15 +16,21 @@ What this DAG does is:
 3. Download Crypto Information: Downloads daily cryptocurrency information from an API, processes it, and stores it as a DataFrame.
 4. Load the data into an Amazon Redshift table (cryptodata_aux) with the data for this day
 5. Merge the information in another table in Amazon Redshift with all the historical information
-6. Send an email with a summary of the coin volume exceeding predefined thresholds. 
+6. Send an email with a summary of the coin volume exceeding predefined thresholds.
+
+![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/eee9ad75-2a60-461d-88f0-7577bcc12723)
 
 ## Configuring your Amazon Redshift Connection
 In the Airflow UI for your local Airflow environment, go to Admin > Connections. Click + to add a new connection, then select the connection type as Amazon Redshift.
+
+Create the connection using the image below as a reference.
 
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/74af1ee0-d77a-4de4-a739-02bc3c9f34ad)
 
 ## Configuring your Postgresql Connection
 In the Airflow UI for your local Airflow environment, go to Admin > Connections. Click + to add a new connection, then select the connection type as Postgresql
+
+Create the connection using the image below as a reference.
 
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/086b5ebd-33b7-4f8f-81e3-1e016b65cd55)
 
@@ -90,6 +96,8 @@ In the Airflow UI for your local Airflow environment, go to Admin > Variables. C
 }
 ```
 
+Create the variables using the image below as a reference.
+
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/a2509c46-e3d4-4347-a4f8-c32007623f9a)
 
 To send email alerts you need to create an account in the Sendgrid site https://sendgrid.com/en-us/pricing and get an API key.
@@ -99,7 +107,6 @@ After that you need to create three new variables in airflow:
 1. sendgrid_api_key: API key for SendGrid to send email alerts.
 2. sendgrid_email_from: Email address from which alerts will be sent.
 3. sendgrid_email_to: Email address(es) to which alerts will be sent.
-
 
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/f389bcb8-a2ae-404b-806f-b4a9bd792ddf)
 
@@ -114,9 +121,6 @@ It's easy, just do:
 5. Input `admin` as the user and the password you got on step 3. Without the `%` char.
 6. Once inside, activate the DAG, wait for it to turn dark green and voila! The pipeline ran.
 7. To kill everything, you can `make stop`
-
-![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/eee9ad75-2a60-461d-88f0-7577bcc12723)
-
 
 https://github.com/gmurugosa/airflow_etl
 
