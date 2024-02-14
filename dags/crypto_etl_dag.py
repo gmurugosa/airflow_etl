@@ -66,6 +66,8 @@ def create_crypto_data_table():
             quantity float8,
             amount int8,
             avg_price float8,
+            insert_datetime TIMESTAMP DEFAULT GETDATE(),
+            update_datetime TIMESTAMP DEFAULT GETDATE(),
             primary key (date,coin)
         );   
     """
@@ -166,11 +168,12 @@ def execute_merge_operation():
                     volume = source.volume,
                     quantity = source.quantity,
                     amount = source.amount,
-                    avg_price = source.avg_price
+                    avg_price = source.avg_price,
+                    update_datetime = GETDATE()
             WHEN NOT MATCHED THEN
-                INSERT (coin, date, opening, closing, lowest, highest, volume, quantity, amount, avg_price)
+                INSERT (coin, date, opening, closing, lowest, highest, volume, quantity, amount, avg_price,insert_datetime, update_datetime)
                 VALUES (source.coin, source.date, source.opening, source.closing, source.lowest, source.highest,
-                        source.volume, source.quantity, source.amount, source.avg_price);             
+                        source.volume, source.quantity, source.amount, source.avg_price, GETDATE(),GETDATE());             
         """
         execute_sql_query(merge_sql)
         logging.info("Merge operation executed successfully.")
@@ -190,12 +193,13 @@ def send_email_alert_with_threshold(**kwargs):
             if not df.empty:
                 volume_min_threshold, volume_max_threshold = get_min_max_for_coin(coin)
                 volume = df['volume'].iloc[0]
+                threshold_message += f"<p>{coin} :<br/> - Minimum threshold: {volume_min_threshold}<br/> - Maximum threshold: {volume_max_threshold}<br/> - Current value: {volume}<br/>"
                 if volume > volume_max_threshold:
                     coins_above_threshold.append(coin)
-                    threshold_message += f"<p>{coin} :<br/> - Minimum threshold: {volume_min_threshold}<br/> - Maximum threshold: {volume_max_threshold}<br/> - Current value: {volume}<br/> - Status: Volume above threshold.<br/> "
+                    threshold_message += "- Status: Volume above threshold.<br/> "
                 elif volume < volume_min_threshold:
                     coins_below_threshold.append(coin)
-                    threshold_message += f"<p>{coin} :<br/> - Minimum threshold: {volume_min_threshold}<br/> - Maximum threshold: {volume_max_threshold}<br/> - Current value: {volume}<br/> - Status: Volume below threshold.<br/> "
+                    threshold_message += "- Status: Volume below threshold.<br/> "
         
         if coins_above_threshold or coins_below_threshold:
             execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
