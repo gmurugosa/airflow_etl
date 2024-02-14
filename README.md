@@ -32,7 +32,8 @@ In the Airflow UI for your local Airflow environment, go to Admin > Connections.
 
 Create the connection using the image below as a reference.
 
-![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/086b5ebd-33b7-4f8f-81e3-1e016b65cd55)
+![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/1048216e-d0f3-416b-b2b5-6c934ad67d36)
+
 
 
 ## Configuring your Airflow Variables
@@ -110,6 +111,81 @@ After that you need to create three new variables in airflow:
 
 ![image](https://github.com/gmurugosa/airflow_etl/assets/5313359/f389bcb8-a2ae-404b-806f-b4a9bd792ddf)
 
+## Email Example:
+
+Subject: 
+
+Crypto Data DAG Alerts Volume Report on 2024-02-14 19:53:52
+
+Body:
+
+The DAG "crypto_data_dag" was executed on 2024-02-14 19:53:52.
+
+Below is a summary of the coins that are below or above the volume treshold:
+
+BTC :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 12495613.74042248
+- Status: Volume above threshold.
+  
+ETH :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 4327599.94612477
+- Status: Volume above threshold.
+  
+USDT :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 282713.56123292
+- Status: Volume above threshold.
+  
+XRP :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 260561.22479138
+- Status: Volume above threshold.
+  
+SOL :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 1234919.11064081
+- Status: Volume above threshold.
+  
+USDC :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 392499.79941562
+- Status: Volume above threshold.
+  
+ADA :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 314597.16245071
+- Status: Volume above threshold.
+  
+DOGE :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 145602.25295119
+- Status: Volume above threshold.
+  
+AVAX :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 197800.99605916
+- Status: Volume above threshold.
+  
+LTC :
+- Minimum threshold: 240
+- Maximum threshold: 290
+- Current value: 91558.20391983
+- Status: Volume above threshold.
+  
+Best regards,
+
+DAG Alerts Team
 
 ## Usage
 It's easy, just do:
@@ -121,9 +197,6 @@ It's easy, just do:
 5. Input `admin` as the user and the password you got on step 3. Without the `%` char.
 6. Once inside, activate the DAG, wait for it to turn dark green and voila! The pipeline ran.
 7. To kill everything, you can `make stop`
-
-https://github.com/gmurugosa/airflow_etl
-
 
 ## HELP!
 Run `make help`.
