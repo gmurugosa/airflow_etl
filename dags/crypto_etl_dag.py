@@ -5,7 +5,6 @@ import requests
 from sqlalchemy import create_engine
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.email_operator import EmailOperator
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
@@ -179,13 +178,12 @@ def execute_merge_operation():
         logging.error(f"Error executing merge operation: {e}")
 
 # Task to send email alert with coins above/below threshold volume
-# Agregar información de fecha y hora y el valor de ejecución
 def send_email_alert_with_threshold(**kwargs):
     try:
         ti = kwargs['ti']
         coins_above_threshold = []
         coins_below_threshold = []
-        threshold_message = ""  # Initialize an empty string to store threshold values
+        threshold_message = ""  # Inicializar un string vacío para almacenar los valores del umbral
         
         for coin in coins:
             df = ti.xcom_pull(task_ids='download_crypto_information', key=f"dataframe_{coin}")
@@ -194,28 +192,46 @@ def send_email_alert_with_threshold(**kwargs):
                 volume = df['volume'].iloc[0]
                 if volume > volume_max_threshold:
                     coins_above_threshold.append(coin)
-                    threshold_message += f"{coin}: Min threshold = {volume_min_threshold}, Max threshold = {volume_max_threshold}\n"  # Add threshold values to the message
+                    threshold_message += f"<p>{coin} :<br/> - Minimum threshold: {volume_min_threshold}<br/> - Maximum threshold: {volume_max_threshold}<br/> - Current value: {volume}<br/> - Status: Volume above threshold.<br/> "
                 elif volume < volume_min_threshold:
                     coins_below_threshold.append(coin)
-                    threshold_message += f"{coin}: Min threshold = {volume_min_threshold}, Max threshold = {volume_max_threshold}\n"  # Add threshold values to the message
+                    threshold_message += f"<p>{coin} :<br/> - Minimum threshold: {volume_min_threshold}<br/> - Maximum threshold: {volume_max_threshold}<br/> - Current value: {volume}<br/> - Status: Volume below threshold.<br/> "
         
-        # Send email only if there are coins above or below threshold
         if coins_above_threshold or coins_below_threshold:
-            message = f"Threshold values for each coin:\n{threshold_message}\n\n"
-            message += f"Coins with volume above threshold ({volume_max_threshold}): {', '.join(coins_above_threshold)}\n" \
-                       f"Coins with volume below threshold ({volume_min_threshold}): {', '.join(coins_below_threshold)}"
-            
+            execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            dag_name = kwargs['dag'].dag_id
+
+            # Construir el cuerpo del correo electrónico con formato HTML
+            body = f"""
+            <html>
+            <body>
+            <p>The DAG "{dag_name}" was executed on {execution_time}.</p>
+            <p>Below is a summary of the coins that are below or above the volume treshold:</p>
+
+            {threshold_message}
+
+            <p>Best regards,<br/><br/>
+            DAG Alerts Team</p>
+            </body>
+            </html>
+            """
+
+            # Creating email
+            subject = f"Crypto Data DAG Alerts Volume Report on {execution_time}"
+
             mail = Mail(
                 from_email=email_from,
                 to_emails=email_to,
-                subject="Crypto Data DAG Execution Report",
-                html_content=message
+                subject=subject,
+                html_content=body
             )
+
+            # Sending email using SendGrid
             sg = SendGridAPIClient(sendgrid_api_key)
             response = sg.send(mail)
-            logging.info(f"Email sent. Status code: {response.status_code}")
+            logging.info(f"Mail sended. Status code: {response.status_code}")
         else:
-            logging.info("No coins above or below threshold. Email not sent.")
+            logging.info("There are no coins above or below the threshold. No email was sent.")
     except Exception as e:
         logging.error(f"Error sending email: {e}")
 
